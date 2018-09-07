@@ -1,0 +1,41 @@
+platform: linux/${arch}
+
+workspace:
+  base: /project
+  path: src/github.com/syncthing/syncthing
+
+clone:
+  git:
+    image: syncloud/drone-git-${arch}
+    depth: 50
+
+pipeline:
+
+  build:
+    image: syncloud/build-deps-${arch}
+    commands:
+      - GO_VERSION=1.10.4
+      - wget https://dl.google.com/go/go$GO_VERSION.linux-${go_arch}.tar.gz --progress=dot:giga
+      - tar xf go$GO_VERSION.linux-${go_arch}.tar.gz -C /
+      - rm go$GO_VERSION.linux-${go_arch}.tar.gz
+      - export GOROOT=/go
+      - export PATH=$PATH:$GOROOT/bin
+      - export GOPATH=/project
+      - ./build.sh assets
+      - go run build.go -version v1.0.$DRONE_BUILD_NUMBER tar
+
+
+  ci-artifact:
+    image: syncloud/build-deps-${arch}
+
+    secrets: [ARTIFACT_SSH_KEY]
+    commands:
+      - ./upload-artifact.sh syncthing-linux-*.tar.gz
+    when:
+      status: [ failure, success ]
+matrix:
+  include:
+    - arch: arm
+      go_arch: armv6l
+    - arch: amd64
+      go_arch: amd64
